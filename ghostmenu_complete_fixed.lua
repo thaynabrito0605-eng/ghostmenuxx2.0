@@ -247,7 +247,7 @@ local function createESP(player)
 	if player.Team ~= nil and LocalPlayer.Team ~= nil and player.Team == LocalPlayer.Team then return end
 
 	local function onCharacterAdded(character)
-		-- Se já existe ESP para esse player, remova antes de criar novo (evita duplicidade)
+		-- Remove ESP antigo se existir
 		if allESP[player] then
 			for _, obj in pairs(allESP[player]) do
 				if obj and obj.Remove then pcall(function() obj:Remove() end) end
@@ -293,7 +293,9 @@ local function createESP(player)
 
 		allESP[player] = {boxLines=boxLines, nameTag=nameTag, distanceTag=distanceTag, itemTag=itemTag, line=line, healthBar=healthBar, character=character}
 
-		character.AncestryChanged:Connect(function(_, parent)
+		-- Sempre recria o ESP quando o personagem respawnar
+		if allESP[player]._charConn then allESP[player]._charConn:Disconnect() end
+		allESP[player]._charConn = character.AncestryChanged:Connect(function(_, parent)
 			if not parent then
 				for _, l in ipairs(boxLines) do l:Remove() end
 				nameTag:Remove()
@@ -301,14 +303,16 @@ local function createESP(player)
 				itemTag:Remove()
 				healthBar:Remove()
 				line:Remove()
+				allESP[player] = nil
 			end
 		end)
 	end
 
+	-- Sempre conecta o evento para respawn
+	player.CharacterAdded:Connect(onCharacterAdded)
 	if player.Character then
 		onCharacterAdded(player.Character)
 	end
-	player.CharacterAdded:Connect(onCharacterAdded)
 end
 
 -- RenderStepped global para todos os ESPs
@@ -739,14 +743,13 @@ local function selectTab(tabName)
 			-- Função para pegar player mais próximo da cabeça dentro do FOV
 			local function getClosestPlayerInFOV()
 				local closestPlayer = nil
-				local shortestDistance = state.fov
+				local shortestDistance = state.fov or 120
 				for _, player in ipairs(Players:GetPlayers()) do
 					if player ~= LocalPlayer
 						and player.Character
 						and player.Character:FindFirstChild("Head")
 						and player.Character:FindFirstChild("Humanoid")
 						and player.Character.Humanoid.Health > 0
-						and (not player.Team or not LocalPlayer.Team or player.Team ~= LocalPlayer.Team)
 					then
 						local pos, onScreen = Camera:WorldToViewportPoint(player.Character.Head.Position)
 						if onScreen then
@@ -783,7 +786,11 @@ local function selectTab(tabName)
 						local camPos = Camera.CFrame.Position
 						local newCFrame = CFrame.new(camPos, camPos + (headPos - camPos).Unit)
 						-- Smooth
-						local lerped = Camera.CFrame:Lerp(newCFrame, math.clamp((state.smooth or 6)/100,0.01,1))
+						local smoothValue = tonumber(state.smooth) or 2
+						local lerped = Camera.CFrame:Lerp(newCFrame, math.clamp(smoothValue/100,0.15,1))
+						-- Dica: quanto menor o smooth, mais forte o lock
+						-- Exemplo: smooth 1 = lock instantâneo, smooth 2 = lock forte, smooth 6+ = lock fraco
+						Camera.CFrame = lerped
 						Camera.CFrame = lerped
 					end
 				end
