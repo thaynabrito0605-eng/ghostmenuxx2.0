@@ -970,11 +970,14 @@ local function selectTab(tabName)
 				-- Não limpar selectedPlayer aqui, para manter seleção ao reabrir
 				return
 			end
-			local miniList = Instance.new("Frame")
+			local miniList = Instance.new("ScrollingFrame")
 			miniList.Size = UDim2.new(0, 220, 0, 320)
 			miniList.Position = UDim2.new(0, MainFrame.AbsolutePosition.X + MainFrame.AbsoluteSize.X + 12, 0, MainFrame.AbsolutePosition.Y)
 			miniList.BackgroundColor3 = Color3.fromRGB(30,30,30)
 			miniList.BorderSizePixel = 0
+			miniList.CanvasSize = UDim2.new(0, 0, 0, 1000)
+			miniList.ScrollBarThickness = 8
+			miniList.ScrollBarImageColor3 = Color3.fromRGB(60,60,60)
 			miniList.Parent = ScreenGui
 			state.miniList = miniList
 			showListBtn.Text = "Fechar Lista"
