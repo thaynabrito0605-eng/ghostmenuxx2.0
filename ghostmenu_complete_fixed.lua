@@ -741,7 +741,13 @@ local function selectTab(tabName)
 				local closestPlayer = nil
 				local shortestDistance = state.fov
 				for _, player in ipairs(Players:GetPlayers()) do
-					if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 then
+					if player ~= LocalPlayer
+						and player.Character
+						and player.Character:FindFirstChild("Head")
+						and player.Character:FindFirstChild("Humanoid")
+						and player.Character.Humanoid.Health > 0
+						and (not player.Team or not LocalPlayer.Team or player.Team ~= LocalPlayer.Team)
+					then
 						local pos, onScreen = Camera:WorldToViewportPoint(player.Character.Head.Position)
 						if onScreen then
 							local mousePos = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
