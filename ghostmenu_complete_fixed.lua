@@ -205,7 +205,8 @@ end
  
 
 
--- ESP AVANÇADO (caixa branca, barra de vida verde, nome, distância, item, linha)
+
+-- ESP SIMPLIFICADO E ROBUSTO
 local Players = game:GetService("Players")
 local Camera = workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
@@ -230,72 +231,52 @@ end
 local function clearAllESP()
 	for _, tbl in pairs(allESP) do
 		for _, obj in pairs(tbl) do
-			if typeof(obj) == "Instance" or typeof(obj) == "table" and obj.Remove then
-				pcall(function() obj:Remove() end)
-			elseif typeof(obj) == "table" and obj.Destroy then
-				pcall(function() obj:Destroy() end)
-			end
+			if obj and obj.Remove then pcall(function() obj:Remove() end) end
 		end
 	end
 	allESP = {}
 end
 
-
 local function createESP(player)
 	if player == LocalPlayer then return end
-	-- Checagem de time: só mostra ESP em inimigos (apenas uma vez)
-	if player.Team ~= nil and LocalPlayer.Team ~= nil and player.Team == LocalPlayer.Team then return end
-
-	local function onCharacterAdded(character)
-		-- Remove ESP antigo se existir
-		if allESP[player] then
-			for _, obj in pairs(allESP[player]) do
-				if obj and obj.Remove then pcall(function() obj:Remove() end) end
-			end
+	if allESP[player] then
+		for _, obj in pairs(allESP[player]) do
+			if obj and obj.Remove then pcall(function() obj:Remove() end) end
 		end
-
-		-- Linhas da caixa (brancas)
-		local boxLines = {}
-		for i = 1, 4 do
-			local line = Drawing.new("Line")
-			line.Thickness = 2
-			line.Color = Color3.fromRGB(255, 255, 255)
-			boxLines[i] = line
-		end
-
-		-- Nome, distância, linha (brancos)
-		local nameTag = Drawing.new("Text")
-		nameTag.Size = 16
-		nameTag.Color = Color3.fromRGB(255,255,255)
-		nameTag.Outline = true
-		nameTag.Center = true
-
-		local distanceTag = Drawing.new("Text")
-		distanceTag.Size = 14
-		distanceTag.Color = Color3.fromRGB(255,255,255)
-		distanceTag.Outline = true
-		distanceTag.Center = true
-
-		local itemTag = Drawing.new("Text")
-		itemTag.Size = 14
-		itemTag.Color = Color3.fromRGB(255,255,255)
-		itemTag.Outline = true
-		itemTag.Center = true
-
+	end
+	local boxLines = {}
+	for i = 1, 4 do
 		local line = Drawing.new("Line")
-		line.Thickness = 1
-		line.Color = Color3.fromRGB(255,255,255)
-
-		-- Barra de vida (verde)
-		local healthBar = Drawing.new("Line")
-		healthBar.Thickness = 4
-		healthBar.Color = Color3.fromRGB(0,255,0)
-
-		allESP[player] = {boxLines=boxLines, nameTag=nameTag, distanceTag=distanceTag, itemTag=itemTag, line=line, healthBar=healthBar, character=character}
-
-		-- Sempre recria o ESP quando o personagem respawnar
-		if allESP[player]._charConn then allESP[player]._charConn:Disconnect() end
-		allESP[player]._charConn = character.AncestryChanged:Connect(function(_, parent)
+		line.Thickness = 2
+		line.Color = Color3.fromRGB(255, 255, 255)
+		boxLines[i] = line
+	end
+	local nameTag = Drawing.new("Text")
+	nameTag.Size = 16
+	nameTag.Color = Color3.fromRGB(255,255,255)
+	nameTag.Outline = true
+	nameTag.Center = true
+	local distanceTag = Drawing.new("Text")
+	distanceTag.Size = 14
+	distanceTag.Color = Color3.fromRGB(255,255,255)
+	distanceTag.Outline = true
+	distanceTag.Center = true
+	local itemTag = Drawing.new("Text")
+	itemTag.Size = 14
+	itemTag.Color = Color3.fromRGB(255,255,255)
+	itemTag.Outline = true
+	itemTag.Center = true
+	local line = Drawing.new("Line")
+	line.Thickness = 1
+	line.Color = Color3.fromRGB(255,255,255)
+	local healthBar = Drawing.new("Line")
+	healthBar.Thickness = 4
+	healthBar.Color = Color3.fromRGB(0,255,0)
+	allESP[player] = {boxLines=boxLines, nameTag=nameTag, distanceTag=distanceTag, itemTag=itemTag, line=line, healthBar=healthBar, character=player.Character}
+	-- Remove ESP ao morrer/desconectar
+	if allESP[player]._charConn then allESP[player]._charConn:Disconnect() end
+	if player.Character then
+		allESP[player]._charConn = player.Character.AncestryChanged:Connect(function(_, parent)
 			if not parent then
 				for _, l in ipairs(boxLines) do l:Remove() end
 				nameTag:Remove()
@@ -307,11 +288,34 @@ local function createESP(player)
 			end
 		end)
 	end
+	-- Atualiza ESP ao respawn
+	if allESP[player]._respawnConn then allESP[player]._respawnConn:Disconnect() end
+	allESP[player]._respawnConn = player.CharacterAdded:Connect(function(char)
+		createESP(player)
+	end)
+	-- Remove ESP se mudar para o mesmo time
+	if allESP[player]._teamConn then allESP[player]._teamConn:Disconnect() end
+	allESP[player]._teamConn = player:GetPropertyChangedSignal("Team"):Connect(function()
+		if player.Team ~= nil and LocalPlayer.Team ~= nil and player.Team == LocalPlayer.Team then
+			if allESP[player] then
+				for _, obj in pairs(allESP[player]) do
+					if obj and obj.Remove then pcall(function() obj:Remove() end) end
+				end
+				allESP[player] = nil
+			end
+		else
+			createESP(player)
+		end
+	end)
+end
 
-	-- Sempre conecta o evento para respawn
-	player.CharacterAdded:Connect(onCharacterAdded)
-	if player.Character then
-		onCharacterAdded(player.Character)
+-- Atualiza todos os ESPs
+local function updateAllESP()
+	clearAllESP()
+	for _, player in ipairs(Players:GetPlayers()) do
+		if player ~= LocalPlayer and player.Team ~= nil and LocalPlayer.Team ~= nil and player.Team ~= LocalPlayer.Team then
+			createESP(player)
+		end
 	end
 end
 
@@ -434,18 +438,16 @@ RunService.RenderStepped:Connect(function()
 end)
  
 local function updateAllESP()
-	-- Remove ESP de quem saiu
-	for player, _ in pairs(allESP) do
-		if not Players:FindFirstChild(player.Name) then
-			for _, obj in pairs(allESP[player]) do
-				if obj and obj.Remove then pcall(function() obj:Remove() end) end
-			end
-			allESP[player] = nil
+	-- Limpa todos os ESPs existentes
+	for player, tbl in pairs(allESP) do
+		for _, obj in pairs(tbl) do
+			if obj and obj.Remove then pcall(function() obj:Remove() end) end
 		end
+		allESP[player] = nil
 	end
-	-- Garante ESP para todos os jogadores (exceto LocalPlayer)
+	-- Cria ESP para todos os jogadores (exceto LocalPlayer)
 	for _, player in ipairs(Players:GetPlayers()) do
-		if player ~= LocalPlayer and not allESP[player] then
+		if player ~= LocalPlayer then
 			createESP(player)
 		end
 	end
@@ -818,11 +820,19 @@ local function selectTab(tabName)
 			espToggle.Text = esp..": "..(state.ESP[key] and "ON" or "OFF")
 			espToggle.BorderSizePixel = 0
 			espToggle.Parent = MainArea
+			espToggle.Name = "ESP_"..key
 			espToggle.MouseButton1Click:Connect(function()
 				state.ESP[key] = not state.ESP[key]
-				setESP(key, state.ESP[key])
-				espToggle.Text = esp..": "..(state.ESP[key] and "ON" or "OFF")
-				espToggle.BackgroundColor3 = state.ESP[key] and Color3.fromRGB(200, 0, 0) or Color3.fromRGB(35, 39, 42)
+				-- Atualiza todos os botões da aba para refletir o estado correto
+				for j, otherEsp in ipairs(espNames) do
+					local otherKey = otherEsp:match("ESP (.+)")
+					local btn = MainArea:FindFirstChild("ESP_"..otherKey)
+					if btn then
+						btn.Text = otherEsp..": "..(state.ESP[otherKey] and "ON" or "OFF")
+						btn.BackgroundColor3 = state.ESP[otherKey] and Color3.fromRGB(200, 0, 0) or Color3.fromRGB(35, 39, 42)
+					end
+				end
+				updateAllESP()
 			end)
 			y = y + 44
 		end
@@ -1356,23 +1366,10 @@ local function selectTab(tabName)
 		saveBtn.MouseButton1Click:Connect(function()
 			local HttpService = game:GetService("HttpService")
 			local configStr = HttpService:JSONEncode(getConfigTable())
-			if state.spectating then
-				local stopBtn = Instance.new("TextButton")
-				stopBtn.Size = UDim2.new(0, 220, 0, 32)
-				stopBtn.Position = UDim2.new(0, 24, 0, y)
-				stopBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
-				stopBtn.TextColor3 = Color3.fromRGB(255,255,255)
-				stopBtn.Font = Enum.Font.SourceSansBold
-				stopBtn.TextSize = 18
-				stopBtn.Text = "Parar de Telar"
-				stopBtn.BorderSizePixel = 0
-				stopBtn.Parent = MainArea
-				stopBtn.MouseButton1Click:Connect(function()
-					stopSpectate()
-					state.selectedPlayer = nil
-					selectTab("Players")
-				end)
-				y = y + 44
+			if setclipboard then
+				setclipboard(configStr)
+			else
+				print("setclipboard não suportado neste executor.")
 			end
 		end)
 	end
