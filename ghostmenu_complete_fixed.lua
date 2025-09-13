@@ -243,9 +243,7 @@ end
 
 local function createESP(player)
 	if player == LocalPlayer then return end
-	-- Checagem de time: só mostra ESP em inimigos
-	if player.Team ~= nil and LocalPlayer.Team ~= nil and player.Team == LocalPlayer.Team then return end
-	-- Checagem de time: não desenhar ESP para jogadores do mesmo time
+	-- Checagem de time: só mostra ESP em inimigos (apenas uma vez)
 	if player.Team ~= nil and LocalPlayer.Team ~= nil and player.Team == LocalPlayer.Team then return end
 
 	local function onCharacterAdded(character)
